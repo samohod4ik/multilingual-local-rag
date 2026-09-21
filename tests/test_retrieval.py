@@ -8,7 +8,11 @@ from multilingual_local_rag.contracts import sha256_text
 from multilingual_local_rag.index.builder import build_snapshot, chunk_document, read_current
 from multilingual_local_rag.index.vector_cache import VectorCache, validate_vector
 from multilingual_local_rag.providers.deterministic import HashEmbedder, OverlapReranker
-from multilingual_local_rag.providers.pinned import PinnedEmbedder, PinnedReranker, ProviderUnavailable
+from multilingual_local_rag.providers.pinned import (
+    PinnedEmbedder,
+    PinnedReranker,
+    ProviderUnavailable,
+)
 from multilingual_local_rag.retrieval.hybrid import search_snapshot
 
 
