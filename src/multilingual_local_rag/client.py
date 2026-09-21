@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from urllib.error import HTTPError
 from urllib.parse import urlparse
-from urllib.request import HTTPHandler, Request, build_opener
+from urllib.request import HTTPDefaultErrorHandler, HTTPErrorProcessor, HTTPHandler, OpenerDirector, Request
 
 
 def request_json(
@@ -18,11 +18,18 @@ def request_json(
     req = Request(base + path, data=data, method=method)
     if data is not None:
         req.add_header("Content-Type", "application/json")
-    opener = build_opener(HTTPHandler)
+    opener = OpenerDirector()
+    opener.add_handler(HTTPDefaultErrorHandler())
+    opener.add_handler(HTTPHandler())
+    opener.add_handler(HTTPErrorProcessor())
     try:
         with opener.open(req, timeout=5) as response:
+            if 300 <= response.status < 400:
+                raise ValueError("redirects are not followed")
             body = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
+        if 300 <= exc.code < 400:
+            raise ValueError("redirects are not followed") from exc
         body = json.loads(exc.read().decode("utf-8"))
         if not isinstance(body, dict):
             raise ValueError("response must be an object") from exc

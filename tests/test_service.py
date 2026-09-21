@@ -32,6 +32,31 @@ def test_mixed_citation_abstains() -> None:
     assert answered.evidence
 
 
+def test_client_does_not_follow_redirects() -> None:
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Redirect(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            self.send_response(302)
+            self.send_header("Location", "http://example.com/")
+            self.end_headers()
+
+        def log_message(self, fmt: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Redirect)
+    port = server.server_address[1]
+    import threading
+
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with pytest.raises(ValueError, match="redirects"):
+            request_json(f"http://127.0.0.1:{port}", "GET", "/")
+    finally:
+        server.shutdown()
+
+
 def test_client_rejects_lookalike_host() -> None:
     with pytest.raises(ValueError, match="loopback"):
         request_json("http://127.0.0.1.evil.test", "GET", "/v1/health")
