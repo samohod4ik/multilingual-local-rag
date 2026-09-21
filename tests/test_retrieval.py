@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from multilingual_local_rag.adapters.filesystem import FilesystemAdapter, is_reparse
+import os
+
+from multilingual_local_rag.adapters.filesystem import (
+    FilesystemAdapter,
+    is_reparse,
+    paths_contained,
+)
 from multilingual_local_rag.contracts import sha256_text
 from multilingual_local_rag.index.builder import build_snapshot, chunk_document, read_current
 from multilingual_local_rag.index.vector_cache import VectorCache, validate_vector
@@ -34,6 +40,33 @@ def test_filesystem_rejects_non_utf8(tmp_path: Path) -> None:
     (tmp_path / "bad.txt").write_bytes(b"\xff\xfe")
     with pytest.raises(ValueError, match="utf-8"):
         list(FilesystemAdapter(tmp_path).iter_documents())
+
+
+def test_empty_file_is_skipped(tmp_path: Path) -> None:
+    (tmp_path / "empty.txt").write_text("\n", encoding="utf-8")
+    (tmp_path / "kept.txt").write_text("kept\n", encoding="utf-8")
+    (tmp_path / "credentials.md").write_text("secret\n", encoding="utf-8")
+    uris = {doc.source_uri for doc in FilesystemAdapter(tmp_path).iter_documents()}
+    assert uris == {"kept.txt"}
+
+
+def test_symlink_file_is_skipped(tmp_path: Path) -> None:
+    real = tmp_path / "real.txt"
+    real.write_text("hello\n", encoding="utf-8")
+    link = tmp_path / "link.txt"
+    try:
+        link.symlink_to(real)
+    except OSError:
+        pytest.skip("this process cannot create a symlink")
+    uris = {doc.source_uri for doc in FilesystemAdapter(tmp_path).iter_documents()}
+    assert uris == {"real.txt"}
+
+
+def test_windows_containment_casefold() -> None:
+    assert paths_contained(r"C:\Data", r"c:\data\note.txt", windows=True)
+    assert not paths_contained(r"C:\Data", r"C:\Other\note.txt", windows=True)
+    if os.name != "nt":
+        assert not paths_contained("/data", "/Data/note", windows=False)
 
 
 def test_reparse_helper_is_false_for_a_normal_file(tmp_path: Path) -> None:
@@ -137,4 +170,24 @@ def test_index_roundtrip_writes_relative_evidence(tmp_path: Path) -> None:
     assert current["snapshot_id"] == snapshot
     encoded = json.dumps(current)
     assert "Users" not in encoded
-    assert snapshot
+    from multilingual_local_rag.index.builder import load_chunks
+    from multilingual_local_rag.index.vector_cache import VectorCache
+    from multilingual_local_rag.retrieval.hybrid import search_snapshot
+
+    chunks = load_chunks(data, snapshot)
+    cache = VectorCache(data / "caches" / "vectors.sqlite")
+    try:
+        found = search_snapshot(
+            chunks,
+            "alpha",
+            profile="quality",
+            embedder=embedder,
+            reranker=OverlapReranker(),
+            cache=cache,
+            model_id=embedder.model_id,
+        )
+    finally:
+        cache.close()
+    assert found.evidence
+    assert len(found.evidence) <= 8
+    assert all(":" not in item.source_uri for item in found.evidence)

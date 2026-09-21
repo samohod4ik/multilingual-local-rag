@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -76,30 +77,35 @@ def build_snapshot(
     if folder.exists():
         shutil.rmtree(folder)
     folder.mkdir(parents=True)
-    payload = [asdict(chunk) for chunk in chunks]
-    (folder / "chunks.jsonl").write_text(
-        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in payload),
-        encoding="utf-8",
-        newline="\n",
-    )
-    if embedder is not None and chunks:
-        cache = VectorCache(root / "caches" / "vectors.sqlite")
-        try:
-            missing = [
-                chunk
-                for chunk in chunks
-                if cache.get(profile, model_id, chunk.content_hash) is None
-            ]
-            if missing:
-                vectors = embedder.embed([chunk.text for chunk in missing])
-                if len(vectors) != len(missing):
-                    raise ValueError("embedder returned the wrong number of vectors")
-                for chunk, vector in zip(missing, vectors, strict=True):
-                    cache.put(
-                        profile, model_id, chunk.content_hash, [float(item) for item in vector]
-                    )
-        finally:
-            cache.close()
+    try:
+        payload = [asdict(chunk) for chunk in chunks]
+        (folder / "chunks.jsonl").write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in payload),
+            encoding="utf-8",
+            newline="\n",
+        )
+        if embedder is not None and chunks:
+            cache = VectorCache(root / "caches" / "vectors.sqlite")
+            try:
+                missing = [
+                    chunk
+                    for chunk in chunks
+                    if cache.get(profile, model_id, chunk.content_hash) is None
+                ]
+                if missing:
+                    vectors = embedder.embed([chunk.text for chunk in missing])
+                    if len(vectors) != len(missing):
+                        raise ValueError("embedder returned the wrong number of vectors")
+                    for chunk, vector in zip(missing, vectors, strict=True):
+                        cache.put(
+                            profile, model_id, chunk.content_hash, [float(item) for item in vector]
+                        )
+            finally:
+                cache.close()
+    except Exception:
+        if folder.exists():
+            shutil.rmtree(folder)
+        raise
     os.replace(folder, final)
     _publish(root, snapshot_id, profile, model_id, adapter.content_hash())
     _retain(root, snapshot_id)
@@ -117,6 +123,8 @@ def read_current(data_root: str | Path) -> dict[str, str] | None:
 
 
 def load_chunks(data_root: str | Path, snapshot_id: str) -> tuple[ChunkRecord, ...]:
+    if not re.fullmatch(r"[0-9a-f]{16}", snapshot_id):
+        raise ValueError("snapshot_id must be 16 hex characters")
     path = Path(data_root) / "snapshots" / snapshot_id / "chunks.jsonl"
     rows = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -142,8 +150,12 @@ def _publish(root: Path, snapshot_id: str, profile: str, model_id: str, source_h
 
 def _retain(root: Path, current_id: str) -> None:
     folder = root / "snapshots"
-    names = sorted(path.name for path in folder.iterdir() if path.is_dir())
-    stale = [name for name in names if name != current_id]
+    ranked = sorted(
+        (path.stat().st_mtime, path.name)
+        for path in folder.iterdir()
+        if path.is_dir() and not path.name.endswith(".partial")
+    )
+    stale = [name for _mtime, name in ranked if name != current_id]
     for name in stale[:-_KEEP] if len(stale) > _KEEP else []:
         target = folder / name
         for child in target.iterdir():

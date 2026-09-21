@@ -6,7 +6,7 @@ import math
 from dataclasses import dataclass
 
 from multilingual_local_rag.index.builder import ChunkRecord
-from multilingual_local_rag.index.vector_cache import VectorCache
+from multilingual_local_rag.index.vector_cache import VectorCache, validate_vector
 from multilingual_local_rag.providers.base import Embedder, Reranker
 from multilingual_local_rag.providers.pinned import ProviderUnavailable
 from multilingual_local_rag.retrieval.bm25 import BM25Index
@@ -82,6 +82,7 @@ def search_snapshot(
         )
     try:
         query_vector = [float(item) for item in embedder.embed([query])[0]]
+        validate_vector(query_vector)
         dense_scores: list[tuple[str, float]] = []
         for chunk in chunks:
             if cache is None:

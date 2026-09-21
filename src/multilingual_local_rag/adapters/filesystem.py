@@ -25,14 +25,18 @@ def is_reparse(path: Path) -> bool:
     return attrs != -1 and bool(attrs & _REPARSE)
 
 
-def _contained(root: Path, candidate: Path) -> bool:
-    root_text = str(root.resolve())
-    cand_text = str(candidate.resolve())
-    if os.name == "nt":
+def paths_contained(root_text: str, cand_text: str, *, windows: bool) -> bool:
+    if windows:
         root_text = root_text.casefold()
         cand_text = cand_text.casefold()
-    separator = "\\" if os.name == "nt" else "/"
+        separator = "\\"
+    else:
+        separator = "/"
     return cand_text == root_text or cand_text.startswith(root_text + separator)
+
+
+def _contained(root: Path, candidate: Path) -> bool:
+    return paths_contained(str(root.resolve()), str(candidate.resolve()), windows=os.name == "nt")
 
 
 class FilesystemAdapter:
@@ -67,8 +71,10 @@ class FilesystemAdapter:
                     continue
                 if is_reparse(path) or not _contained(self._root, path):
                     continue
-                text = self._read(path)
                 relative = path.relative_to(self._root).as_posix()
+                text = self._read(path, relative)
+                if not text.strip():
+                    continue
                 validate_source_uri(relative)
                 content_hash = sha256_text(text)
                 suffix = path.suffix.casefold()
@@ -85,13 +91,17 @@ class FilesystemAdapter:
                 )
 
     def _allowed(self, path: Path) -> bool:
-        if path.name in _SKIP_NAMES or path.suffix.casefold() in _SKIP_SUFFIXES:
+        name = path.name.casefold()
+        stem = path.stem.casefold()
+        if name in _SKIP_NAMES or stem in {".env", "credentials", "id_rsa", "data"}:
+            return False
+        if path.suffix.casefold() in _SKIP_SUFFIXES:
             return False
         return path.suffix.casefold() in _TEXT_SUFFIXES
 
-    def _read(self, path: Path) -> str:
+    def _read(self, path: Path, relative: str) -> str:
         raw = path.read_bytes()
         try:
             return raw.decode("utf-8-sig")
         except UnicodeError as exc:
-            raise ValueError(f"not utf-8: {path.name}") from exc
+            raise ValueError(f"not utf-8: {relative}") from exc
