@@ -24,8 +24,9 @@ def _contained(root: Path, candidate: Path) -> bool:
 
 def resolve_contained(root: Path, relative: str) -> Path:
     """Reject absolute paths and any `..` segment, then require containment."""
-    raw = Path(relative)
-    if raw.is_absolute() or ".." in raw.parts:
+    normalized = relative.replace("\\", "/")
+    raw = Path(normalized)
+    if raw.is_absolute() or ".." in raw.parts or ":" in normalized:
         raise ValueError(f"path escape: {relative!r}")
     root_resolved = root.resolve()
     candidate = (root_resolved / raw).resolve()

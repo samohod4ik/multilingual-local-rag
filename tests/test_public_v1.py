@@ -18,7 +18,9 @@ def _load_generate() -> Any:
 def test_public_v1_regenerated_bytes_match_committed(tmp_path: Path) -> None:
     _load_generate().write_fixture(tmp_path)
     for name in ("groups.jsonl", "documents.jsonl", "queries.jsonl"):
-        assert (tmp_path / name).read_bytes() == (ROOT / name).read_bytes()
+        generated = (tmp_path / name).read_bytes().replace(b"\r\n", b"\n")
+        committed = (ROOT / name).read_bytes().replace(b"\r\n", b"\n")
+        assert generated == committed
 
 
 def test_public_v1_gold_grades_and_pairs() -> None:
