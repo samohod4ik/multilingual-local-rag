@@ -4,7 +4,7 @@ Local-first retrieval experiments over pluggable text sources.
 
 ## What exists in this version
 
-This version publishes typed contracts, a synthetic Russian/English benchmark, and an evaluator. It does **not** implement retrieval, reranking, indexing, or answer generation.
+This version publishes typed contracts, a synthetic Russian/English benchmark, an evaluator, a filesystem adapter, and local hybrid search. Pinned GPU model weights are not in the repository. If that runtime is absent, a quality search is marked degraded and falls back to lexical ranking. Answer generation is not implemented yet.
 
 - Product records are `SourceDocument` values: `source_id`, `source_uri`, `text`, `content_hash`, `revision`, `media_type`, `metadata`, and an optional BCP 47 `language` tag.
 - Benchmark groups, translation pairs, roles, supersession, and grades live in separate annotation types. See [docs/contracts.md](docs/contracts.md).
