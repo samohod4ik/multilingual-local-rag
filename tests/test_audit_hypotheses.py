@@ -22,5 +22,6 @@ def test_hypotheses_cover_h001_through_h007() -> None:
         text = (folder / f"H{number:03d}.md").read_text(encoding="utf-8")
         assert "status: open" in text
     h004 = (folder / "H004.md").read_text(encoding="utf-8")
-    assert "operator-only" in h004
-    assert "falsified" in h004
+    assert "status: open" in h004
+    assert "not the default" in h004
+    assert "No result is claimed" in h004
