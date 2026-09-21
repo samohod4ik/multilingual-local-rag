@@ -1,0 +1,6 @@
+prune tests
+prune benchmarks
+prune research
+prune docs
+prune build
+prune dist

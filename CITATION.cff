@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+title: multilingual-local-rag
+message: If you use this software, please cite it using these metadata.
+type: software
+authors:
+  - alias: samohod4ik
+repository-code: https://github.com/samohod4ik/multilingual-local-rag
+license: MIT
+version: 0.0.0
+abstract: >-
+  Typed contracts, a synthetic Russian and English benchmark, and an
+  evaluator. Retrieval, reranking, and answer generation are not implemented
+  in this version.
