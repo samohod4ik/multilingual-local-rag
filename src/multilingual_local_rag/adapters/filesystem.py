@@ -21,7 +21,8 @@ def is_reparse(path: Path) -> bool:
         return True
     if os.name != "nt":
         return False
-    attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+    kernel = getattr(ctypes, "windll").kernel32
+    attrs = kernel.GetFileAttributesW(str(path))
     return attrs != -1 and bool(attrs & _REPARSE)
 
 
