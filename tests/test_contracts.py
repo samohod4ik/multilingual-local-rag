@@ -1,6 +1,11 @@
 from dataclasses import fields
 
-from multilingual_local_rag.benchmark import BenchmarkDocument, to_source_document
+from multilingual_local_rag.benchmark import (
+    BenchmarkDataset,
+    BenchmarkDocument,
+    to_source_document,
+    validate_document_integrity,
+)
 from multilingual_local_rag.contracts import SourceDocument, sha256_text
 
 
@@ -52,6 +57,31 @@ def test_source_uri_rejects_escape() -> None:
         except ValueError:
             continue
         raise AssertionError(uri)
+
+
+def test_mutated_content_hash_fails_document_integrity() -> None:
+    text = "Bench row."
+    digest = sha256_text(text)
+    mutated = ("0" if digest[0] != "0" else "1") + digest[1:]
+    row = BenchmarkDocument(
+        source_id="DOC-E-001",
+        group_id="GRP-001",
+        language="en",
+        title="Amberlathe",
+        text=text,
+        source_uri="groups/GRP-001/DOC-E-001.txt",
+        content_hash=mutated,
+        revision="1",
+        media_type="text/plain",
+        pair_id="PAIR-001",
+        role="primary",
+    )
+    dataset = BenchmarkDataset(groups=(), documents=(row,), queries=())
+    try:
+        validate_document_integrity(dataset.documents)
+    except ValueError:
+        return
+    raise AssertionError("mutated hash")
 
 
 def test_projection_drops_annotations() -> None:

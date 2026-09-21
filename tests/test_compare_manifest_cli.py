@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from multilingual_local_rag.benchmark import BenchmarkDataset, Qrel, QueryCase, SourceGroup
+from multilingual_local_rag.config import RuntimeConfig
 from multilingual_local_rag.evaluation.compare import compare_runs
 from multilingual_local_rag.evaluation.envelope import parse_predictions
 from multilingual_local_rag.evaluation.manifest import (
@@ -47,6 +48,13 @@ def test_evaluate_rejects_missing_query() -> None:
         evaluate_run(dataset, ())
 
 
+def test_evaluate_rejects_duplicate_query_id() -> None:
+    dataset = _tiny()
+    pred = _pred("QRY-001", "DOC-A")
+    with pytest.raises(ValueError, match="duplicate"):
+        evaluate_run(dataset, (pred, pred))
+
+
 def test_manifest_rejects_parent_segments(tmp_path: Path) -> None:
     (tmp_path / "groups.jsonl").write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="path escape"):
@@ -59,6 +67,43 @@ def test_manifest_accepts_child(tmp_path: Path) -> None:
     child = tmp_path / "groups.jsonl"
     child.write_text("{}\n", encoding="utf-8")
     assert resolve_contained(tmp_path, "groups.jsonl") == child.resolve()
+
+
+def _envelope_row(**overrides: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "query_id": "QRY-001",
+        "ranked_ids": ["DOC-A"],
+        "candidate_ids": ["DOC-A"],
+        "evidence": [{"source_id": "DOC-A", "snippet": "span"}],
+        "latency_ms": 1.0,
+        "degraded": False,
+    }
+    row.update(overrides)
+    return {
+        "schema_version": "1",
+        "run_id": "run-1",
+        "dataset_hash": "abc",
+        "config_hash": "def",
+        "predictions": [row],
+    }
+
+
+def test_envelope_rejects_string_ranked_ids() -> None:
+    with pytest.raises(ValueError, match="list of strings"):
+        parse_predictions(_envelope_row(ranked_ids="DOC-A"), dataset_hash="abc", config_hash="def")
+
+
+def test_envelope_rejects_string_degraded() -> None:
+    with pytest.raises(ValueError, match="degraded must be a bool"):
+        parse_predictions(
+            _envelope_row(degraded="false"), dataset_hash="abc", config_hash="def"
+        )
+
+
+def test_data_root_rejects_windows_parent_segments() -> None:
+    for root in (r"foo\..\bar", r"..\data"):
+        with pytest.raises(ValueError, match=r"\.\."):
+            RuntimeConfig(profile="lexical", data_root=root, loopback_host="127.0.0.1")
 
 
 def test_envelope_rejects_unknown_and_hash_mismatch() -> None:

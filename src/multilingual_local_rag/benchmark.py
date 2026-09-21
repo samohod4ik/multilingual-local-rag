@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
-from multilingual_local_rag.contracts import SourceDocument, _require
+from multilingual_local_rag.contracts import (
+    SourceDocument,
+    _require,
+    sha256_text,
+    validate_source_uri,
+)
 
 PUBLIC_V1_LANGUAGES = frozenset({"ru", "en"})
 CATEGORIES = frozenset(
@@ -125,6 +131,16 @@ def to_source_document(document: BenchmarkDocument) -> SourceDocument:
     )
 
 
+def validate_document_integrity(documents: Sequence[BenchmarkDocument]) -> None:
+    """Check each corpus row hash and URI without the public-v1 40/80 cardinality rules."""
+    for doc in documents:
+        validate_source_uri(doc.source_uri)
+        _require(
+            doc.content_hash == sha256_text(doc.text),
+            f"{doc.source_id} content_hash does not match text",
+        )
+
+
 def validate_dataset(dataset: BenchmarkDataset) -> None:
     """Check public-v1 gold, grades, pairs, and source-group split integrity."""
     groups = {group.group_id: group for group in dataset.groups}
@@ -135,11 +151,11 @@ def validate_dataset(dataset: BenchmarkDataset) -> None:
     _require(len(dataset.queries) == 80, f"expected 80 queries, got {len(dataset.queries)}")
     seen_categories = {group.category for group in dataset.groups}
     _require(seen_categories == CATEGORIES, f"missing categories {CATEGORIES - seen_categories}")
+    validate_document_integrity(dataset.documents)
 
     by_group_docs: dict[str, list[BenchmarkDocument]] = {gid: [] for gid in groups}
     for doc in dataset.documents:
         _require(doc.group_id in groups, f"{doc.source_id} has unknown group")
-        _require(bool(doc.content_hash), f"{doc.source_id} missing hash")
         by_group_docs[doc.group_id].append(doc)
         if doc.supersedes is not None:
             _require(doc.supersedes in docs, f"{doc.source_id} supersedes unknown id")

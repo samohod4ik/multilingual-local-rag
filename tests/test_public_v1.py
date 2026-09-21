@@ -1,8 +1,24 @@
+import importlib.util
 from pathlib import Path
+from typing import Any
 
 from multilingual_local_rag.evaluation.dataset import load_dataset
 
 ROOT = Path(__file__).resolve().parents[1] / "benchmarks" / "public-v1"
+
+
+def _load_generate() -> Any:
+    spec = importlib.util.spec_from_file_location("public_v1_generate", ROOT / "generate.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_public_v1_regenerated_bytes_match_committed(tmp_path: Path) -> None:
+    _load_generate().write_fixture(tmp_path)
+    for name in ("groups.jsonl", "documents.jsonl", "queries.jsonl"):
+        assert (tmp_path / name).read_bytes() == (ROOT / name).read_bytes()
 
 
 def test_public_v1_gold_grades_and_pairs() -> None:

@@ -130,7 +130,10 @@ class _ScoreRow:
 
 def evaluate_run(dataset: BenchmarkDataset, predictions: Sequence[Prediction]) -> dict[str, float]:
     expected = {query.query_id for query in dataset.queries}
-    got = {prediction.query_id for prediction in predictions}
+    query_ids = [prediction.query_id for prediction in predictions]
+    if len(query_ids) != len(set(query_ids)):
+        raise ValueError("duplicate prediction query_id")
+    got = set(query_ids)
     if got != expected:
         missing = sorted(expected - got)
         extra = sorted(got - expected)

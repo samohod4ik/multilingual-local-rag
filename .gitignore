@@ -8,5 +8,13 @@ build/
 dist/
 *.egg-info/
 indexes/
+snapshots/
+caches/
+receipts/
 .env
 *.sqlite
+*.bin
+*.gguf
+*.safetensors
+*.onnx
+*.pt

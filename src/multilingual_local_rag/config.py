@@ -19,7 +19,7 @@ class RuntimeConfig:
             raise ValueError(f"unknown profile {self.profile!r}")
         if not self.data_root or self.data_root.startswith(("/", "\\")) or ":" in self.data_root:
             raise ValueError("data_root must be a relative path")
-        if ".." in self.data_root.split("/"):
+        if ".." in self.data_root.replace("\\", "/").split("/"):
             raise ValueError("data_root must not contain ..")
         if self.loopback_host not in _LOOPBACK:
             raise ValueError("loopback_host must be a loopback name")
