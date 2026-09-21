@@ -1,0 +1,6 @@
+{
+  "embedder_id": "pinned-embedder",
+  "reranker_id": "pinned-reranker",
+  "weights_in_git": false,
+  "note": "Download pinned local embedding and reranker weights outside this repository. This manifest does not vendor them."
+}
