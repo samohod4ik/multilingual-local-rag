@@ -5,7 +5,13 @@ from __future__ import annotations
 import json
 from urllib.error import HTTPError
 from urllib.parse import urlparse
-from urllib.request import HTTPDefaultErrorHandler, HTTPErrorProcessor, HTTPHandler, OpenerDirector, Request
+from urllib.request import (
+    HTTPDefaultErrorHandler,
+    HTTPErrorProcessor,
+    HTTPHandler,
+    OpenerDirector,
+    Request,
+)
 
 
 def request_json(
