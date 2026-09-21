@@ -95,9 +95,7 @@ def test_envelope_rejects_string_ranked_ids() -> None:
 
 def test_envelope_rejects_string_degraded() -> None:
     with pytest.raises(ValueError, match="degraded must be a bool"):
-        parse_predictions(
-            _envelope_row(degraded="false"), dataset_hash="abc", config_hash="def"
-        )
+        parse_predictions(_envelope_row(degraded="false"), dataset_hash="abc", config_hash="def")
 
 
 def test_data_root_rejects_windows_parent_segments() -> None:
