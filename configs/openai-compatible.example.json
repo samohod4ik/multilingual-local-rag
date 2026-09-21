@@ -1,0 +1,4 @@
+{
+  "host": "127.0.0.1",
+  "note": "Point this at a local OpenAI-compatible server. Do not put an API key in this file."
+}
