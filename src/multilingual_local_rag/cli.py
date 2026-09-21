@@ -20,6 +20,7 @@ from multilingual_local_rag.index.vector_cache import VectorCache
 from multilingual_local_rag.providers.deterministic import HashEmbedder, OverlapReranker
 from multilingual_local_rag.providers.pinned import PinnedEmbedder, PinnedReranker
 from multilingual_local_rag.retrieval.hybrid import search_snapshot
+from multilingual_local_rag.service.api import LoopbackServer, load_state
 
 
 def _cmd_validate(args: argparse.Namespace) -> int:
@@ -103,6 +104,13 @@ def _cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    state = load_state(args.data_root, profile=args.profile, embedder_name=args.embedder)
+    server = LoopbackServer(args.host, args.port, state)
+    server.serve_forever()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="mlrag")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -132,6 +140,13 @@ def build_parser() -> argparse.ArgumentParser:
     status = sub.add_parser("status")
     status.add_argument("--data-root", type=Path, required=True)
     status.set_defaults(func=_cmd_status)
+    serve = sub.add_parser("serve")
+    serve.add_argument("--data-root", type=Path, required=True)
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8765)
+    serve.add_argument("--profile", choices=("lexical", "quality"), default="lexical")
+    serve.add_argument("--embedder", choices=("pinned", "hash"), default="hash")
+    serve.set_defaults(func=_cmd_serve)
     return parser
 
 

@@ -25,6 +25,18 @@ def test_prompt_treats_documents_as_data() -> None:
     assert "Ignore previous instructions" in prompt
 
 
+def test_mixed_citation_abstains() -> None:
+    result = SearchResult((_evidence(),), False, None, 0, "lexical")
+    answered = answer_question(result, "limit?", lambda _prompt: "See [S1] and also [S9].")
+    assert answered.abstained is True
+    assert answered.evidence
+
+
+def test_client_rejects_lookalike_host() -> None:
+    with pytest.raises(ValueError, match="loopback"):
+        request_json("http://127.0.0.1.evil.test", "GET", "/v1/health")
+
+
 def test_unknown_citation_abstains_but_keeps_evidence() -> None:
     result = SearchResult((_evidence(),), False, None, 0, "lexical")
     answered = answer_question(result, "limit?", lambda _prompt: "The token is [S9].")
@@ -57,6 +69,8 @@ def test_service_is_loopback_and_does_not_log_queries(tmp_path: Path) -> None:
     thread.start()
     try:
         base = f"http://127.0.0.1:{port}"
+        caps = request_json(base, "GET", "/v1/capabilities")
+        assert "search" in caps["endpoints"]
         health = request_json(base, "GET", "/v1/health")
         assert health["ok"] is True
         found = request_json(base, "POST", "/v1/search", {"query": "alpha"})
@@ -64,6 +78,15 @@ def test_service_is_loopback_and_does_not_log_queries(tmp_path: Path) -> None:
         answered = request_json(base, "POST", "/v1/answer", {"query": "alpha"})
         assert answered["evidence"]
         assert answered["citations"] == ["S1"]
+        import http.client
+
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        conn.request(
+            "POST", "/v1/search", body=b"", headers={"Content-Length": "-1", "Host": "127.0.0.1"}
+        )
+        too_big = conn.getresponse()
+        assert too_big.status == 413
+        too_big.read()
         assert not (data / "queries.log").exists()
     finally:
         server.shutdown()

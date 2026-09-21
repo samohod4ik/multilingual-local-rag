@@ -19,6 +19,7 @@ from multilingual_local_rag.retrieval.hybrid import search_snapshot
 from multilingual_local_rag.service.state import ServiceState
 
 _LOOPBACK = {"127.0.0.1", "localhost", "::1"}
+_HOSTS = {"127.0.0.1", "localhost", "[::1]"}
 _MAX_BODY = 16_384
 
 
@@ -36,7 +37,15 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: object) -> None:
         return
 
+    def _host_ok(self) -> bool:
+        host = self.headers.get("Host", "")
+        name = host.split(":", 1)[0]
+        return name in _HOSTS
+
     def do_GET(self) -> None:  # noqa: N802
+        if not self._host_ok():
+            self._send({"error": "bad_host"}, status=421)
+            return
         path = urlparse(self.path).path
         if path == "/v1/capabilities":
             self._send(
@@ -55,9 +64,19 @@ class Handler(BaseHTTPRequestHandler):
         self._send({"error": "not_found"}, status=404)
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._host_ok():
+            self._send({"error": "bad_host"}, status=421)
+            return
         path = urlparse(self.path).path
-        length = int(self.headers.get("Content-Length", "0"))
-        if length > _MAX_BODY:
+        raw_length = self.headers.get("Content-Length", "0")
+        try:
+            length = int(raw_length)
+        except ValueError:
+            self.close_connection = True
+            self._send({"error": "bad_length"}, status=400)
+            return
+        if length < 0 or length > _MAX_BODY:
+            self.close_connection = True
             self._send({"error": "body_too_large"}, status=413)
             return
         raw = self.rfile.read(length)

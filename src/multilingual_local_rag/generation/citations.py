@@ -7,11 +7,14 @@ import re
 _CITE = re.compile(r"\[S(\d+)\]")
 
 
-def valid_citations(answer: str, evidence_count: int) -> tuple[str, ...]:
+def valid_citations(answer: str, evidence_count: int) -> tuple[str, ...] | None:
+    """Return citation labels, or None if any label is outside the evidence packet."""
     found: list[str] = []
     for match in _CITE.finditer(answer):
         number = int(match.group(1))
+        if number < 1 or number > evidence_count:
+            return None
         label = f"S{number}"
-        if 1 <= number <= evidence_count and label not in found:
+        if label not in found:
             found.append(label)
     return tuple(found)

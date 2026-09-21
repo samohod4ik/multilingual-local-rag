@@ -2,7 +2,7 @@
 
 Report vulnerabilities privately to the repository owner. Do not open a public issue that includes a proof of concept against a host you do not control.
 
-This version does not run a network service. Later local endpoints, if added, must bind to loopback only.
+The optional HTTP service binds only to loopback and does not record query text. Do not point it at a public interface.
 
 Do not commit indexes. They would contain copies of source text.
 
